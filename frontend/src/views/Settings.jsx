@@ -15,6 +15,7 @@ import { wakeLockSupported } from '../lib/wakelock.js'
 import { t, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, baseLang } from '../lib/i18n.js'
 import { effectiveLang } from '../lib/default-lang.js'
 import { DEMO, REPO } from '../lib/demo.js'
+import { STANDALONE } from '../lib/standalone.js'
 import { MOBILE, isAndroid, shareExport, shareExportBlob, syncReminder } from '../lib/mobile.js'
 import { referencedFiles } from '../lib/media-refs.js'
 import { mediaStore } from '../lib/media-store.js'
@@ -44,7 +45,7 @@ export default function Settings() {
   const lang = effectiveLang(S, config)
   // This profile's passkeys and the code for another device (#95). A change to them is read back
   // here and by the password row, whose "Remove" depends on there being a passkey.
-  const passkeys = usePasskeys(!!user && !MOBILE && !DEMO)
+  const passkeys = usePasskeys(!!user && !MOBILE && !DEMO && !STANDALONE)
   const [credsV, setCredsV] = useState(0)
   const credsChanged = () => { passkeys.load(); setCredsV(v => v + 1) }
   const { update, importConflict, importBackup, setUnit, resetEverything: resetAll, setUser, pullState, pushState, resetDemo } = useStore()
@@ -278,7 +279,7 @@ export default function Settings() {
     {/* ---------- the server: which one, which account, how that stands, "Sync now" ----------
         A paired phone's Admin and Disconnect sit in the same block; a browser's account rows
         follow in their own. */}
-    {user && !DEMO && <ServerSyncSection>
+    {user && !DEMO && !STANDALONE && <ServerSyncSection>
       {MOBILE && <>
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
         <AccountIdRow id={user.id} />
@@ -286,9 +287,11 @@ export default function Settings() {
       </>}
     </ServerSyncSection>}
 
-    {/* ---------- account (demo and mobile builds have nothing to sign in to) ---------- */}
-    {!(MOBILE && user) && <Section title={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
-      {MOBILE ? <>
+    {/* ---------- account (demo, standalone and mobile builds have nothing to sign in to) ---------- */}
+    {!(MOBILE && user) && <Section title={MOBILE || STANDALONE ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
+      {STANDALONE ? <>
+        <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
+      </> : MOBILE ? <>
         <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
         <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my server')} subtitle={t('Sync this device to your own self-hosted openGym instead.')} accessory="chevron"
           onClick={connectServer} />
@@ -324,7 +327,7 @@ export default function Settings() {
         <KeptChangesRows />
       </>}
     </Section>}
-    {!user && !DEMO && !MOBILE && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode — data lives only in this browser.')}</p>}
+    {!user && !DEMO && !STANDALONE && !MOBILE && <p className="sect-f" style={{ marginTop: -18, marginBottom: 22 }}>{t('Guest mode — data lives only in this browser.')}</p>}
 
     {/* ---------- the Coach on a phone: through the paired server, or with the user's own key ---------- */}
     {MOBILE && <Section title={t('AI Coach')}>
@@ -508,7 +511,7 @@ export default function Settings() {
     <EquipmentCard S={S} update={update} />
 
     {/* ---------- appearance ---------- */}
-    <Section title={t('Appearance')} footer={DEMO || MOBILE ? undefined : t('synced with your profile')}>
+    <Section title={t('Appearance')} footer={DEMO || STANDALONE || MOBILE ? undefined : t('synced with your profile')}>
       <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
         <Segmented
           className="seg-inline"

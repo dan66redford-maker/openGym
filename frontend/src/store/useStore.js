@@ -4,6 +4,7 @@ import { localTZ } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
+import { STANDALONE } from '../lib/standalone.js'
 import { rememberDefaultLang } from '../lib/default-lang.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, onAppActive, readJsonFile, syncReminder, writeAutoBackup, writeJsonFile } from '../lib/mobile.js'
@@ -1460,9 +1461,10 @@ export const useStore = create((set, get) => {
         finishBoot({ needsMobileOnboarding: !remote && !hasData(get().S) })
         return
       }
-      // Demo build (GitHub Pages): no backend at all — seed once, stay in guest mode.
-      if (DEMO) {
-        if (!localStorage.getItem(DEMO_SEEDED)) {
+      // Demo and standalone builds (static hosting such as GitHub Pages): no backend at all — stay
+      // in guest mode. Only the demo seeds its example history, once.
+      if (DEMO || STANDALONE) {
+        if (DEMO && !localStorage.getItem(DEMO_SEEDED)) {
           localStorage.setItem(DEMO_SEEDED, '1')
           await get().resetDemo()
         }

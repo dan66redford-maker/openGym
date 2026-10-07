@@ -11,6 +11,7 @@ import { passkeyLogin, webauthnOK } from '../lib/api.js'
 import { MOBILE } from '../lib/mobile.js'
 import { syncMedia } from '../lib/media-sync.js'
 import { DEMO } from '../lib/demo.js'
+import { STANDALONE } from '../lib/standalone.js'
 import { askAddDeviceData } from '../sheets.jsx'
 import { ConnectSheet } from '../views/MobileOnboarding.jsx'
 import { passwordOn, openPasswordSignIn } from './PasswordAuth.jsx'
@@ -291,7 +292,7 @@ export function KeptChangesRows() {
     if (typeof kept === 'function') kept().then(r => { if (!gone) setRows(r || []) }).catch(() => {})
     return () => { gone = true }
   }, [kept, user?.id, rev])
-  if (DEMO) return null
+  if (DEMO || STANDALONE) return null
   return rows.map(k => <Row key={(k.server || '') + '|' + k.uid} icon="history" iconTint="var(--orange)"
     title={t('Changes kept for {0}', k.name || k.uid)}
     subtitle={(k.server ? hostOf(k.server) + ' · ' : '') + t('Added back when this device connects as that account again.')} />)
