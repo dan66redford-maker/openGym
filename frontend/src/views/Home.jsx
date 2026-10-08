@@ -4,14 +4,16 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, weighInsSheet } from '../sheets.jsx'
+import { exportBackupWeb, bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, weighInsSheet } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
-import { activeTargets, currentWeightKg, dayTotals } from '../lib/nutrition.js'
+import { activeTargets, currentWeightKg, dayTotals, shiftISO } from '../lib/nutrition.js'
 import { MacroBar } from './Food.jsx'
+import { STANDALONE } from '../lib/standalone.js'
+import { backupReminder, daysBetween, snoozeBackup } from '../lib/save-file.js'
 
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
@@ -19,6 +21,9 @@ export default function Home() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const [weekOffset, setWeekOffset] = useState(0)
+  // Standalone build: this phone holds the only copy, so ask for a backup once a week.
+  const [, rerender] = useState(0)
+  const backup = STANDALONE ? backupReminder({ today: todayISO(), hasData: !!(S.workouts.length || S.foodLog?.length || S.bodyweight.length) }) : null
 
   const today = new Date()
   // A weekday can hold several routines. `todayRoutines` is the whole day; `routine` is the
@@ -131,6 +136,20 @@ export default function Home() {
         </div>
       </div>
     )}
+
+    {backup?.due && <div className="card">
+      <div className="row" style={{ gap: 10, marginBottom: 6 }}>
+        <span className="lrow-i" style={{ background: 'var(--orange)' }}><Icon name="download" /></span>
+        <div className="ttl" style={{ fontWeight: 600 }}>{t('Back up your data')}</div>
+      </div>
+      <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+        {backup.last ? t('Last backup {0} days ago.', daysBetween(backup.last, todayISO())) : t('No backup yet.')} {t('Everything lives only on this phone — save a copy to Files or iCloud Drive.')}
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <Button variant="primary" icon="download" style={{ flex: 1 }} onClick={async () => { await exportBackupWeb(); rerender(n => n + 1) }}>{t('Back up')}</Button>
+        <Button style={{ flex: 1 }} onClick={() => { snoozeBackup(shiftISO(todayISO(), 1)); rerender(n => n + 1) }}>{t('Not now')}</Button>
+      </div>
+    </div>}
 
     {/* Today's food against the targets (views/Food.jsx); before any targets, the way in. */}
     {S.showFoodCard !== false && (() => {

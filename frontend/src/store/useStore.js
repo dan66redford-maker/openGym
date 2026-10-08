@@ -1470,6 +1470,9 @@ export const useStore = create((set, get) => {
       // Demo and standalone builds (static hosting such as GitHub Pages): no backend at all — stay
       // in guest mode. Only the demo seeds its example history, once.
       if (DEMO || STANDALONE) {
+        // This browser holds the only copy: ask for storage the browser will not clear under
+        // pressure. Safari grants it to a home-screen app; a refusal changes nothing.
+        if (STANDALONE) { try { navigator.storage?.persist?.()?.catch?.(() => {}) } catch { /* not offered */ } }
         if (DEMO && !localStorage.getItem(DEMO_SEEDED)) {
           localStorage.setItem(DEMO_SEEDED, '1')
           await get().resetDemo()

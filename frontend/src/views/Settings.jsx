@@ -17,6 +17,7 @@ import { effectiveLang } from '../lib/default-lang.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { STANDALONE } from '../lib/standalone.js'
 import { MOBILE, isAndroid, shareExport, shareExportBlob, syncReminder } from '../lib/mobile.js'
+import { saveFile, markBackedUp } from '../lib/save-file.js'
 import { referencedFiles } from '../lib/media-refs.js'
 import { mediaStore } from '../lib/media-store.js'
 import { syncMedia, fetchToStore } from '../lib/media-sync.js'
@@ -25,7 +26,7 @@ import { limitsFrom, fmtMB, MB } from '../lib/media-limits.js'
 import { setRestAccent } from '../lib/rest-alert.js'
 import { checkForUpdate, downloadAndInstall } from '../lib/update.js'
 import { forgetCoach } from '../lib/coach-api.js'
-import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, plateInventorySheet, menuSheet } from '../sheets.jsx'
+import { exportBackupWeb, starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, plateInventorySheet, menuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { ServerSyncSection, KeptChangesRows, leaveServer, connectServer, passkeySignIn } from '../components/ServerSync.jsx'
 import { passwordOn, PasswordRow, openPasswordSignIn, openPasswordRegister } from '../components/PasswordAuth.jsx'
@@ -152,9 +153,7 @@ export default function Settings() {
       try { await shareExport(json, name); toast(t('Backup exported')) } catch (e) { /* share sheet dismissed */ }
       return
     }
-    const blob = new Blob([json], { type: 'application/json' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href)
-    toast(t('Backup exported'))
+    await exportBackupWeb()
   }
   // "Export with photos & videos": the same JSON plus every file the state refers to, in a zip
   // (lib/backup-media.js). Signed in, a file this device never downloaded is fetched for it; one
@@ -172,9 +171,8 @@ export default function Settings() {
       try { await shareExportBlob(out.blob, name); if (!out.missing) toast(t('Backup exported')) } catch (e) { /* share sheet dismissed */ }
       return
     }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(out.blob); a.download = name; a.click()
-    setTimeout(() => URL.revokeObjectURL(a.href), 60000)
-    if (!out.missing) toast(t('Backup exported'))
+    const how = await saveFile(out.blob, name)
+    if (how !== 'cancelled') { markBackedUp(todayISO()); if (!out.missing) toast(t('Backup exported')) }
   }
   // Import takes the JSON backup and the zip alike, told apart by their first bytes. A zip's
   // files go into the local store only once the import is confirmed, each checked against its

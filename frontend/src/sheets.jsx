@@ -33,6 +33,7 @@ import { exerciseHistory } from './lib/exercise-history.js'
 import { policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC, MAX_BW_SETS, weightIncrement } from './lib/progression.js'
 import { normalizeRepRange } from './lib/rep-range.js'
 import { MOBILE, shareExport, printHtml } from './lib/mobile.js'
+import { saveFile, markBackedUp } from './lib/save-file.js'
 import { speedUnitOf, toSpeed, fromSpeed } from './lib/speed.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { isWarmupRow, hasCompletedWork } from './lib/workout-model.js'
@@ -115,6 +116,16 @@ function MenuSheet({ title, titleClass = '', subtitle, items, close }) {
     </div>
   </>
 }
+// The JSON backup on the web build: the share sheet on a phone ("Save to Files"), a download on a
+// computer (lib/save-file.js). Settings → Export and the backup reminder on Home both use it; the
+// reminder counts the backup as made once the file has gone somewhere.
+export async function exportBackupWeb() {
+  const name = 'opengym-backup-' + todayISO() + '.json'
+  const how = await saveFile(new Blob([JSON.stringify(S(), null, 2)], { type: 'application/json' }), name)
+  if (how !== 'cancelled') { markBackedUp(todayISO()); toast(t('Backup exported')) }
+  return how
+}
+
 export function menuSheet(opts) {
   ui().openSheet(close => <MenuSheet {...opts} close={close} />)
 }
@@ -1737,9 +1748,8 @@ function PlanTools({ close }) {
     const json = JSON.stringify(bundle, null, 2)
     const name = 'opengym-plan-' + todayISO() + '.json'
     if (MOBILE) { try { await shareExport(json, name) } catch (e) { /* dismissed */ } close(); return }
-    const blob = new Blob([json], { type: 'application/json' })
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href)
-    close(); toast(t('Plan file saved — send it to a friend'))
+    const how = await saveFile(new Blob([json], { type: 'application/json' }), name)
+    close(); if (how !== 'cancelled') toast(t('Plan file saved — send it to a friend'))
   }
   const pickFile = ev => {
     const f = ev.target.files[0]; ev.target.value = ''; if (!f) return
