@@ -81,3 +81,39 @@ export async function importCodeFromImageWeb(file) {
   }
   try { return await decodeSource(bmp) } finally { if (bmp.close) bmp.close() }
 }
+
+// Product barcodes (EAN-13, UPC-A, EAN-8) for the food log: the browser's BarcodeDetector where
+// it has one, our own scan-line decoder (lib/ean.js) everywhere else — iOS Safari included. A
+// sharper frame than the QR path's (1280 px): a barcode's narrowest bar has to stay a pixel or
+// two wide. Resolves to the digits, or null.
+let _eanDetector = null
+function nativeEanDetector() {
+  if (_eanDetector !== null) return _eanDetector
+  try {
+    _eanDetector = (typeof BarcodeDetector === 'function') ? new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a'] }) : false
+  } catch (e) { _eanDetector = false }
+  return _eanDetector
+}
+const MAX_EAN = 1280
+let _eanCanvas = null
+export async function decodeProductSource(source) {
+  const sw = source.videoWidth || source.naturalWidth || source.width || 0
+  const sh = source.videoHeight || source.naturalHeight || source.height || 0
+  if (!sw || !sh) return null
+  const k = Math.min(1, MAX_EAN / Math.max(sw, sh))
+  const w = Math.max(1, Math.round(sw * k)), h = Math.max(1, Math.round(sh * k))
+  if (!_eanCanvas) _eanCanvas = document.createElement('canvas')
+  _eanCanvas.width = w; _eanCanvas.height = h
+  const ctx = _eanCanvas.getContext('2d', { willReadFrequently: true })
+  ctx.drawImage(source, 0, 0, w, h)
+  const det = nativeEanDetector()
+  if (det) {
+    try {
+      const found = await det.detect(_eanCanvas)
+      const b = found && found.find(x => /^\d{8,13}$/.test(x.rawValue || ''))
+      if (b) return b.rawValue.length === 12 ? '0' + b.rawValue : b.rawValue
+    } catch (e) { /* fall through to our own decoder */ }
+  }
+  const { decodeImageData: decodeEan } = await import('./ean.js')
+  return decodeEan(ctx.getImageData(0, 0, w, h))
+}

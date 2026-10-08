@@ -10,6 +10,8 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
+import { activeTargets, currentWeightKg, dayTotals } from '../lib/nutrition.js'
+import { MacroBar } from './Food.jsx'
 
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
@@ -129,6 +131,25 @@ export default function Home() {
         </div>
       </div>
     )}
+
+    {/* Today's food against the targets (views/Food.jsx); before any targets, the way in. */}
+    {S.showFoodCard !== false && (() => {
+      const tg = activeTargets(S.nutri, currentWeightKg(S.bodyweight, S.unit, todayISO()), todayISO())
+      const tot = dayTotals(S.foodLog, todayISO())
+      return <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => nav('/food'))}>
+        <div className="row between">
+          <div className="row" style={{ gap: 9 }}>
+            <span className="lrow-i" style={{ background: 'var(--green)' }}><Icon name="flame" /></span>
+            <div>
+              <div className="lbl2">{t('Food')}</div>
+              <div className="ttl">{tg ? t('{0} of {1} kcal', Math.round(tot.kcal).toLocaleString(), tg.kcal.toLocaleString()) : t('Track calories & macros')}</div>
+            </div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+        {tg && <MacroBar label={t('Protein')} value={tot.p} target={tg.p} color="var(--blue)" />}
+      </div>
+    })()}
 
     {!S.routines.length && !S.active && (
       <div className="card">

@@ -76,6 +76,12 @@ export const DEF = {
   unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, soundOnSilent: false, timerFlash: false, timedSetOvertime: false, keepAwake: true, lang: 'en',
   theme: 'dark', accent: 'lime', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
+  // Nutrition (lib/nutrition.js): `nutri` is the profile the targets are worked out from —
+  // { sex, born, cm, activity, goal, bf?, custom? } — null until it is filled in. `foods` are the
+  // saved foods ({ id, name, brand?, barcode?, per100: { kcal, p, c, f }, serving? }), `foodLog`
+  // one entry per thing eaten, carrying its own numbers ({ id, d, meal, foodId?, name, g?, kcal,
+  // p, c, f }) so a later edit of the food leaves past days as they were.
+  nutri: null, foods: [], foodLog: [],
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // Stats activity heatmap metric. Profiles without this key continue to open on time.
   heatmapMetric: 'time',

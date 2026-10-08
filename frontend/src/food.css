@@ -1,0 +1,41 @@
+/* Food log and nutrition targets (views/Food.jsx, views/FoodTargets.jsx). */
+.fd-macro{margin-top:9px}
+.fd-bar{height:7px;border-radius:4px;background:var(--surface-3);overflow:hidden;margin-top:4px}
+.fd-bar>span{display:block;height:100%;border-radius:4px;transition:width .3s}
+.fd-meal{padding-bottom:6px}
+.fd-entry{display:flex;align-items:center;gap:10px;width:100%;text-align:start;padding:10px 2px;border-top:1px solid var(--sep);background:none;color:inherit;font:inherit}
+.fd-list .fd-entry:first-child{border-top:0}
+.fd-entry-m{display:flex;flex-direction:column;min-width:0;flex:1;gap:2px}
+.fd-entry-n{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fd-entry-k{font-weight:600;font-variant-numeric:tabular-nums}
+.fd-list{margin-top:8px}
+.fd-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fd-actions .btn{padding-inline:6px}
+.fd-field{display:flex;flex-direction:column;gap:4px}
+.fd-field .field{width:100%}
+.fd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
+.fd-preview{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:14px 0;text-align:center}
+.fd-preview>div{background:var(--surface-2);border-radius:10px;padding:8px 2px;display:flex;flex-direction:column}
+.fd-preview b{font-size:18px;font-variant-numeric:tabular-nums}
+.fd-preview span{font-size:12px;color:var(--label-2)}
+.fd-meals button span{font-size:13px}
+.fd-check{display:flex;gap:9px;align-items:flex-start;padding:9px 2px;font-size:14px;line-height:1.4;border-top:1px solid var(--sep)}
+.fd-check:first-child{border-top:0}
+.fd-check svg{flex:none;margin-top:2px}
+.fd-check.ok svg{color:var(--green)}
+.fd-check.info svg{color:var(--blue)}
+.fd-check.warn svg{color:var(--orange)}
+.fd-check.fail svg{color:var(--red)}
+.fd-verdict{display:flex;gap:10px;align-items:center;font-weight:600;margin-bottom:6px}
+.fd-verdict.ok{color:var(--green)}.fd-verdict.info{color:var(--green)}
+.fd-verdict.warn{color:var(--orange)}.fd-verdict.fail{color:var(--red)}
+.fd-targets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.fd-targets>div{background:var(--surface-2);border-radius:10px;padding:10px 2px;display:flex;flex-direction:column}
+.fd-targets b{font-size:20px;font-variant-numeric:tabular-nums}
+.fd-targets span{font-size:12px;color:var(--label-2)}
+.fd-stat{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--sep)}
+.fd-stat:first-child{border-top:0}
+.fd-stat .field{max-width:120px;text-align:end}
+.fd-stat .seg{max-width:220px;flex:1}
+.fd-daynav{margin:-6px 0 12px}
+.fd-daylbl{background:none;border:0;color:var(--label);font:inherit;font-weight:600;font-size:17px;padding:6px 12px}
