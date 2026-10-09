@@ -12,6 +12,8 @@ import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
 import { activeTargets, currentWeightKg, dayTotals, shiftISO } from '../lib/nutrition.js'
 import { MacroBar } from './Food.jsx'
+import { healthContext } from './Health.jsx'
+import { habitChecks, weekSummary } from '../lib/health.js'
 import { STANDALONE } from '../lib/standalone.js'
 import { backupReminder, daysBetween, snoozeBackup } from '../lib/save-file.js'
 
@@ -167,6 +169,25 @@ export default function Home() {
           <Icon name="chevronRight" className="chev" />
         </div>
         {tg && <MacroBar label={t('Protein')} value={tot.p} target={tg.p} color="var(--blue)" />}
+      </div>
+    })()}
+
+    {/* The week's health habits (views/Health.jsx). */}
+    {S.showHealthCard !== false && (() => {
+      const checks = habitChecks(weekSummary(S, todayISO()), healthContext(S))
+      const judged = checks.filter(c => c.level === 'ok' || c.level === 'warn' || c.level === 'fail')
+      const ok = judged.filter(c => c.level === 'ok').length
+      return <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => nav('/health'))}>
+        <div className="row between">
+          <div className="row" style={{ gap: 9 }}>
+            <span className="lrow-i" style={{ background: 'var(--red)' }}><Icon name="heart" /></span>
+            <div>
+              <div className="lbl2">{t('Health this week')}</div>
+              <div className="ttl">{judged.length ? t('{0} of {1} habits on track', ok, judged.length) : t('Habits & Apple Health')}</div>
+            </div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
       </div>
     })()}
 

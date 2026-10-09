@@ -25,6 +25,10 @@ describe('parseProduct', () => {
     expect(food.barcode).toBe('5901234123457')
     expect(food.serving).toBeNull()
   })
+  it('keeps fiber and sugar when the product lists them', () => {
+    const food = parseProduct({ status: 1, product: { product_name: 'Oats', nutriments: { 'energy-kcal_100g': 379, proteins_100g: 13.2, carbohydrates_100g: 67.7, fat_100g: 6.5, fiber_100g: 10.1, sugars_100g: 1 } } })
+    expect(food.per100).toEqual({ kcal: 379, p: 13.2, c: 67.7, f: 6.5, fib: 10.1, sug: 1 })
+  })
   it('knows an unknown product and one with no nutrition facts', () => {
     expect(parseProduct({ status: 0, status_verbose: 'product not found' })).toBeNull()
     expect(parseProduct({ status: 1, product: { product_name: 'Water', nutriments: {} } })).toBeNull()

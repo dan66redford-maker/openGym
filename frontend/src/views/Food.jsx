@@ -2,10 +2,12 @@ import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { todayISO, uid, fmtDate } from '../lib/format.js'
+import { todayISO, uid, fmtDate, DAYS } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { MEALS, activeTargets, copyDay, currentWeightKg, dayTotals, entriesByMeal, entryFrom, foodList, macrosFor, shiftISO } from '../lib/nutrition.js'
+import { MEALS, activeTargets, copyDay, currentWeightKg, dayTotals, entriesByMeal, entryFrom, foodList, macrosFor, shiftISO, weekIntake } from '../lib/nutrition.js'
 import { labelIssues } from '../lib/nutrition-check.js'
+import { fibreSugarTargets } from '../lib/health.js'
+import { fmtArgs } from './Health.jsx'
 import { cleanBarcode, lookupBarcode } from '../lib/off.js'
 import { decodeProductSource } from '../lib/scan-web.js'
 import CameraScan from '../components/CameraScan.jsx'
@@ -33,9 +35,10 @@ function mealNow() {
   return h < 11 ? 'breakfast' : h < 15 ? 'lunch' : h < 21 ? 'dinner' : 'snack'
 }
 
-export function MacroBar({ label, value, target, unit = 'g', color }) {
+// `atLeast` marks a target to reach rather than stay under (fibre): going past it is not "over".
+export function MacroBar({ label, value, target, unit = 'g', color, atLeast = false }) {
   const pct = target > 0 ? Math.min(100, (value / target) * 100) : 0
-  const over = target > 0 && value > target * 1.05
+  const over = !atLeast && target > 0 && value > target * 1.05
   return <div className="fd-macro">
     <div className="row between small"><span>{label}</span><span className="muted">{g1(value)}{target > 0 ? ` / ${n0(target)}` : ''} {unit}</span></div>
     <div className="fd-bar"><span style={{ width: pct + '%', background: over ? 'var(--orange)' : color }} /></div>
@@ -67,7 +70,7 @@ export default function Food() {
         <h1 style={{ fontSize: 28 }}>{t('Food')}</h1>
       </div>
     </div>
-    <div className="row between fd-daynav">
+    <div className="row fd-daynav">
       <button className="iconbtn" onClick={() => setDay(d => shiftISO(d, -1))} aria-label={t('Previous day')}><Icon name="chevronLeft" /></button>
       <button className="fd-daylbl" onClick={() => setDay(today)}>{day === today ? t('Today') : day === shiftISO(today, -1) ? t('Yesterday') : fmtDate(day, true)}</button>
       <button className="iconbtn" onClick={() => setDay(d => shiftISO(d, 1))} disabled={day >= today} style={day >= today ? { visibility: 'hidden' } : undefined} aria-label={t('Next day')}><Icon name="chevronRight" /></button>
@@ -86,6 +89,8 @@ export default function Food() {
       <MacroBar label={t('Protein')} value={tot.p} target={tg.p} color="var(--blue)" />
       <MacroBar label={t('Carbs')} value={tot.c} target={tg.c} color="var(--yellow)" />
       <MacroBar label={t('Fat')} value={tot.f} target={tg.f} color="var(--pink)" />
+      <MacroBar label={t('Fiber')} value={tot.fib} target={fibreSugarTargets(tg.kcal).fib} color="var(--green)" atLeast />
+      <MacroBar label={t('Sugar (limit)')} value={tot.sug} target={fibreSugarTargets(tg.kcal).sug} color="var(--purple)" />
     </div> : <div className="card">
       <div className="row" style={{ gap: 10, marginBottom: 6 }}>
         <span className="lrow-i"><Icon name="target" /></span>
@@ -94,6 +99,8 @@ export default function Food() {
       <div className="muted small" style={{ marginBottom: 12 }}>{t('Enter your stats and goal — your calories and macros are worked out and double-checked for you.')}</div>
       <Button variant="primary" icon="target" onClick={() => nav('/food/targets')}>{t('Set up targets')}</Button>
     </div>}
+
+    {tg && day === today && <WeekCard log={st.foodLog} tg={tg} today={today} goal={st.nutri?.goal} />}
 
     {canCopy && <Button icon="history" onClick={copyYesterday}>{t('Same as yesterday')}</Button>}
 
@@ -115,6 +122,43 @@ export default function Food() {
         </button>)}
       </div>
     })}
+  </div>
+}
+
+/* ============================ the week ============================ */
+
+const TIP_ICON = { ok: 'checkCircle', warn: 'warning', info: 'info' }
+
+// Seven days of calories against the target (one series, so no legend: the title names it), the
+// averages, and what they mean in plain words (lib/nutrition.js weekIntake). A tap on a day shows
+// its numbers — a phone has no hover.
+function WeekCard({ log, tg, today, goal }) {
+  const w = weekIntake(log, tg, today, goal)
+  const [sel, setSel] = useState(null)
+  if (!w.days.some(x => x.n)) return null
+  const top = Math.max(tg.kcal * 1.3, ...w.days.map(x => x.kcal))
+  const H = 96
+  const picked = sel != null ? w.days[sel] : null
+  const dow = d => t(DAYS[new Date(d + 'T12:00:00').getDay()])
+  return <div className="card">
+    <div className="row between" style={{ marginBottom: 10 }}>
+      <div className="ttl" style={{ fontWeight: 600 }}>{t('Calories this week')}</div>
+      <div className="small muted">{t('target {0}', n0(tg.kcal))}</div>
+    </div>
+    <div className="fd-week" style={{ height: H }}>
+      <div className="fd-week-target" style={{ bottom: (tg.kcal / top) * H }} aria-hidden="true" />
+      {w.days.map((x, i) => <button key={x.d} className={'fd-week-col' + (sel === i ? ' on' : '')} onClick={() => setSel(sel === i ? null : i)}
+        aria-label={`${fmtDate(x.d, true)}: ${n0(x.kcal)} kcal, ${g1(x.p)} g ${t('protein')}`}>
+        <span className={'fd-week-bar' + (x.kcal > tg.kcal * 1.1 ? ' over' : '') + (x.d === today ? ' today' : '')} style={{ height: x.n ? Math.max(3, (x.kcal / top) * H) : 0 }} />
+      </button>)}
+    </div>
+    <div className="fd-week-lbl">{w.days.map(x => <span key={x.d}>{x.d === today ? t('Today') : dow(x.d)}</span>)}</div>
+    <div className="small muted" style={{ margin: '10px 0 4px', minHeight: 20 }}>
+      {picked
+        ? (picked.n ? t('{0}: {1} kcal · {2} g protein', fmtDate(picked.d, true), n0(picked.kcal), g1(picked.p)) : t('{0}: nothing logged', fmtDate(picked.d, true)))
+        : w.avgKcal != null ? t('Average {0} kcal · {1} g protein · {2} days logged', n0(w.avgKcal), n0(w.avgP), w.loggedDays) : null}
+    </div>
+    {w.tips.map(x => <div key={x.id} className={'fd-check ' + x.level}><Icon name={TIP_ICON[x.level]} /><span>{t(x.msg, ...fmtArgs(x.args))}</span></div>)}
   </div>
 }
 
@@ -214,15 +258,17 @@ function FoodForm({ draft, note, onCancel, onSaved }) {
   const [brand, setBrand] = useState(draft.brand || '')
   const [servingG, setServingG] = useState(draft.serving?.g ?? null)
   const [basis, setBasis] = useState('100')
-  const [v, setV] = useState({ kcal: per0.kcal ?? null, p: per0.p ?? null, c: per0.c ?? null, f: per0.f ?? null })
+  const [v, setV] = useState({ kcal: per0.kcal ?? null, p: per0.p ?? null, c: per0.c ?? null, f: per0.f ?? null, fib: per0.fib ?? null, sug: per0.sug ?? null })
   const k = basis === 'serving' && servingG > 0 ? 100 / servingG : 1
   const per100 = { kcal: (v.kcal || 0) * k, p: (v.p || 0) * k, c: (v.c || 0) * k, f: (v.f || 0) * k }
+  // Fibre and sugar are optional: left empty they stay unknown, not zero (lib/health.js).
+  const fib = v.fib == null ? null : v.fib * k, sug = v.sug == null ? null : v.sug * k
   const issues = labelIssues(per100)
   const switchBasis = b => {
     if (b === basis || !(servingG > 0)) { setBasis(b); return }
     const m = b === 'serving' ? servingG / 100 : 100 / servingG
     const r = x => (x == null ? null : Math.round(x * m * 10) / 10)
-    setV({ kcal: r(v.kcal), p: r(v.p), c: r(v.c), f: r(v.f) }); setBasis(b)
+    setV({ kcal: r(v.kcal), p: r(v.p), c: r(v.c), f: r(v.f), fib: r(v.fib), sug: r(v.sug) }); setBasis(b)
   }
   const save = () => {
     if (!name.trim()) { toast(t('Give the food a name')); return }
@@ -233,6 +279,8 @@ function FoodForm({ draft, note, onCancel, onSaved }) {
       per100: { kcal: Math.round(per100.kcal), p: r1(per100.p), c: r1(per100.c), f: r1(per100.f) },
       serving: servingG > 0 ? { g: servingG, label: draft.serving?.label } : null,
     }
+    if (fib != null) food.per100.fib = r1(fib)
+    if (sug != null) food.per100.sug = r1(sug)
     update(s => { s.foods = [...(s.foods || []).filter(f => f.id !== food.id), food] })
     onSaved(food)
   }
@@ -257,6 +305,8 @@ function FoodForm({ draft, note, onCancel, onSaved }) {
       {field('p', t('Protein'), 'g')}
       {field('c', t('Carbs'), 'g')}
       {field('f', t('Fat'), 'g')}
+      {field('fib', t('Fiber (optional)'), 'g')}
+      {field('sug', t('Sugar (optional)'), 'g')}
     </div>
     {issues.map(i => <div key={i.id} className={'fd-check ' + i.level}><Icon name="warning" /><span>{t(i.msg, ...i.args)}</span></div>)}
     <div style={{ height: 12 }} />

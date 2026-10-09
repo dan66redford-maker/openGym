@@ -130,29 +130,39 @@ export function activeTargets(profile, kg, today) {
 /* ---------------------------- foods and the log ---------------------------- */
 
 // A food's numbers for `g` grams. Foods store per 100 g: { kcal, p, c, f }.
+// Fibre (fib) and sugar (sug) only when the food lists them: an unknown is not a zero, and the
+// health scorecard (lib/health.js) only judges fibre and sugar from entries that carry them.
 export function macrosFor(food, g) {
   const k = num(g) / 100
   const per = food?.per100 || {}
-  return { kcal: num(per.kcal) * k, p: num(per.p) * k, c: num(per.c) * k, f: num(per.f) * k }
+  const out = { kcal: num(per.kcal) * k, p: num(per.p) * k, c: num(per.c) * k, f: num(per.f) * k }
+  if (per.fib != null) out.fib = num(per.fib) * k
+  if (per.sug != null) out.sug = num(per.sug) * k
+  return out
 }
 
 // A log entry from a saved food and an amount in grams. Rounded once, here, so the day's totals
 // add up to exactly what each row shows.
 export function entryFrom(food, g, { d, meal, id }) {
   const m = macrosFor(food, g)
-  return {
+  const e = {
     id, d, meal, foodId: food.id, name: food.name, brand: food.brand || undefined, g: round(num(g), 0.1),
     kcal: Math.round(m.kcal), p: round(m.p, 0.1), c: round(m.c, 0.1), f: round(m.f, 0.1),
   }
+  if (m.fib != null) e.fib = round(m.fib, 0.1)
+  if (m.sug != null) e.sug = round(m.sug, 0.1)
+  return e
 }
 
 export function dayTotals(log, d) {
-  const out = { kcal: 0, p: 0, c: 0, f: 0, n: 0 }
+  const out = { kcal: 0, p: 0, c: 0, f: 0, fib: 0, sug: 0, n: 0 }
   for (const e of Array.isArray(log) ? log : []) {
     if (e?.d !== d) continue
     out.kcal += num(e.kcal); out.p += num(e.p); out.c += num(e.c); out.f += num(e.f); out.n++
+    out.fib += num(e.fib); out.sug += num(e.sug)
   }
   out.p = round(out.p, 0.1); out.c = round(out.c, 0.1); out.f = round(out.f, 0.1)
+  out.fib = round(out.fib, 0.1); out.sug = round(out.sug, 0.1)
   return out
 }
 
@@ -210,4 +220,38 @@ export function observedTdee(log, bodyweight, unit, today, days = 21) {
   const slope = pts.reduce((a, p) => a + (p.x - mx) * (p.y - my), 0) / pts.reduce((a, p) => a + (p.x - mx) ** 2, 0)
   const intake = [...perDay.values()].reduce((a, b) => a + b, 0) / loggedDays
   return { tdee: Math.round(intake - slope * KCAL_PER_KG), intake: Math.round(intake), kgPerWeek: slope * 7, loggedDays }
+}
+
+/**
+ * The week read back for the Food screen: the seven days ending `today`, each { d, kcal, p, n },
+ * and averages over the complete days that have anything logged (today is still going, so it
+ * counts only when nothing else does). Then plain-language tips from what the numbers show, as
+ * message keys and arguments ({ id, level: ok · warn · info, msg, args }) the screen translates.
+ */
+export function weekIntake(log, targets, today, goal) {
+  const days = []
+  for (let i = 6; i >= 0; i--) {
+    const d = shiftISO(today, -i)
+    const tot = dayTotals(log, d)
+    days.push({ d, kcal: tot.kcal, p: tot.p, n: tot.n })
+  }
+  const done = days.filter(x => x.n > 0 && x.d !== today)
+  const use = done.length ? done : days.filter(x => x.n > 0)
+  const avg = key => (use.length ? use.reduce((a, x) => a + x[key], 0) / use.length : null)
+  const out = { days, loggedDays: use.length, avgKcal: avg('kcal'), avgP: avg('p'), tips: [] }
+  const tip = (id, level, msg, ...args) => out.tips.push({ id, level, msg, args })
+  if (!use.length || !targets) return out
+  if (use.length < 4) tip('logging', 'info', 'Logged {0} of the last 7 days. Log at least 4–5 days a week — the averages, and the second opinion on your targets, need them.', use.length)
+
+  const k = out.avgKcal, tk = targets.kcal
+  const losing = goal === 'cut' || goal === 'recomp'
+  if (k > tk * 1.1 && losing) tip('kcal', 'warn', 'You averaged {0} kcal — {1} over your {2} target. At this rate fat loss stalls.', Math.round(k), Math.round(k - tk), tk)
+  else if (k > tk * 1.1) tip('kcal', 'warn', 'You averaged {0} kcal — {1} over your {2} target.', Math.round(k), Math.round(k - tk), tk)
+  else if (losing && k < tk * 0.85) tip('kcal', 'warn', 'You averaged {0} kcal — {1} under your {2} target. That far under makes building muscle hard; add a meal or a snack.', Math.round(k), Math.round(tk - k), tk)
+  else tip('kcal', 'ok', 'You averaged {0} kcal — on your {1} target.', Math.round(k), tk)
+
+  const hit = use.filter(x => x.p >= targets.p * 0.9).length
+  if (hit < use.length * 0.7) tip('protein', 'warn', 'Protein hit {0} g on {1} of {2} days (average {3} g). Easy adds: Greek yogurt, chicken, eggs, cottage cheese, tuna, a whey shake.', targets.p, hit, use.length, Math.round(out.avgP))
+  else tip('protein', 'ok', 'Protein hit {0} g on {1} of {2} days — that is what keeps the weight you lose coming off fat, not muscle.', targets.p, hit, use.length)
+  return out
 }

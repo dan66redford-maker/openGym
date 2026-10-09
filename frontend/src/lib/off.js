@@ -22,7 +22,7 @@ export function cleanBarcode(s) {
 }
 
 /**
- * One API response → { name, brand, barcode, per100: { kcal, p, c, f }, serving: { g, label } | null }
+ * One API response → { name, brand, barcode, per100: { kcal, p, c, f, fib?, sug? }, serving: { g, label } | null }
  * or null when the product is unknown or has no usable nutrition facts. Energy falls back from
  * kcal to kJ (÷ 4.184) because plenty of European entries only carry the latter.
  */
@@ -40,11 +40,15 @@ export function parseProduct(json, code) {
   const name = String(pr.product_name || pr.product_name_en || pr.generic_name || '').trim()
   const brand = String(pr.brands || '').split(',')[0].trim()
   const sg = num(pr.serving_quantity)
+  const per100 = { kcal: Math.round(kcal ?? 0), p: r1(p ?? 0), c: r1(c ?? 0), f: r1(f ?? 0) }
+  const fib = num(n.fiber_100g), sug = num(n.sugars_100g)
+  if (fib != null) per100.fib = r1(fib)
+  if (sug != null) per100.sug = r1(sug)
   return {
     name: name || (brand ? brand : 'Product ' + (pr.code || code || '')),
     brand: brand || undefined,
     barcode: cleanBarcode(pr.code || code) || String(code || ''),
-    per100: { kcal: Math.round(kcal ?? 0), p: r1(p ?? 0), c: r1(c ?? 0), f: r1(f ?? 0) },
+    per100,
     serving: sg > 0 ? { g: r1(sg), label: String(pr.serving_size || '').trim() || undefined } : null,
   }
 }

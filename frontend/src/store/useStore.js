@@ -82,6 +82,9 @@ export const DEF = {
   // one entry per thing eaten, carrying its own numbers ({ id, d, meal, foodId?, name, g?, kcal,
   // p, c, f }) so a later edit of the food leaves past days as they were.
   nutri: null, foods: [], foodLog: [],
+  // Apple Health, pasted in by a Shortcut (lib/health.js): { 'YYYY-MM-DD': { steps, exMin, active,
+  // sleep, rhr, glu } }. healthSent marks the days whose food went to Health, so a second send asks.
+  health: {}, healthSent: {},
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // Stats activity heatmap metric. Profiles without this key continue to open on time.
   heatmapMetric: 'time',

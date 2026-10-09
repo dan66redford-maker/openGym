@@ -30,6 +30,8 @@ import Home from './views/Home.jsx'
 import CheckIn from './views/CheckIn.jsx'
 import Food from './views/Food.jsx'
 import FoodTargets from './views/FoodTargets.jsx'
+import Health from './views/Health.jsx'
+import HealthSetup from './views/HealthSetup.jsx'
 import Plan from './views/Plan.jsx'
 import RoutineEdit from './views/RoutineEdit.jsx'
 import Workout from './views/Workout.jsx'
@@ -183,6 +185,8 @@ function Shell() {
               {S.checkIn !== false && <Route path="/checkin" element={<CheckIn />} />}
               <Route path="/food" element={<Food />} />
               <Route path="/food/targets" element={<FoodTargets />} />
+              <Route path="/health" element={<Health />} />
+              <Route path="/health/setup" element={<HealthSetup />} />
               <Route path="/plan" element={<Plan />} />
               <Route path="/plan/r/:id" element={<RoutineEdit />} />
               <Route path="/workout" element={<Workout />} />

@@ -37,5 +37,23 @@
 .fd-stat:first-child{border-top:0}
 .fd-stat .field{max-width:120px;text-align:end}
 .fd-stat .seg{max-width:220px;flex:1}
-.fd-daynav{margin:-6px 0 12px}
+.fd-daynav{margin:-6px 0 12px;justify-content:center;gap:4px}
 .fd-daylbl{background:none;border:0;color:var(--label);font:inherit;font-weight:600;font-size:17px;padding:6px 12px}
+.fd-days .fd-dayrow{display:grid;grid-template-columns:1.4fr 1fr .9fr .8fr .6fr;gap:6px;padding:8px 0;border-top:1px solid var(--sep);font-size:14px;font-variant-numeric:tabular-nums}
+.fd-days .fd-dayrow>span:not(:first-child){text-align:end}
+.fd-days .fd-dayrow.head{border-top:0;color:var(--label-2);font-size:12px;padding-top:0}
+.fd-steps{line-height:1.5}
+.fd-step{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--sep)}
+.fd-step:first-child{border-top:0}
+.fd-step-n{flex:none;width:22px;height:22px;border-radius:11px;background:var(--acc-soft);color:var(--acc);font-weight:600;font-size:12px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.fd-code{background:var(--surface-2);border-radius:8px;padding:10px;margin:8px 0 0;font-size:12.5px;white-space:pre-wrap;overflow-x:auto}
+.fd-check b{font-weight:600}
+.fd-week{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;align-items:end;border-bottom:1px solid var(--sep)}
+.fd-week-col{height:100%;display:flex;align-items:flex-end;justify-content:center;background:none;border:0;padding:0;cursor:pointer}
+.fd-week-bar{display:block;width:60%;max-width:28px;border-radius:4px 4px 0 0;background:var(--acc);opacity:.85;transition:height .3s}
+.fd-week-bar.over{background:var(--orange)}
+.fd-week-bar.today{opacity:.45}
+.fd-week-col.on .fd-week-bar{opacity:1;box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--label-2)}
+.fd-week-target{position:absolute;left:0;right:0;border-top:1.5px dashed var(--label-3);pointer-events:none}
+.fd-week-lbl{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11px;color:var(--label-2);margin-top:4px}
+.fd-daynav .iconbtn{width:32px;height:32px;font-size:14px}

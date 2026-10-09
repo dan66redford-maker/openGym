@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeTargets, calcTargets, copyDay, currentWeightKg, dayTotals, entriesByMeal, entryFrom, foodList, macrosFor, missingInputs, observedTdee, shiftISO } from './nutrition.js'
+import { activeTargets, calcTargets, copyDay, currentWeightKg, dayTotals, entriesByMeal, entryFrom, foodList, macrosFor, missingInputs, observedTdee, shiftISO, weekIntake } from './nutrition.js'
 
 const TODAY = '2026-10-08'
 // 30 years old, 180 cm, 85 kg, lifting 3–5 days a week, cutting.
@@ -62,6 +62,13 @@ describe('the food log', () => {
     expect(entryFrom(oats, 50, { d: TODAY, meal: 'breakfast', id: 'e1' }))
       .toEqual({ id: 'e1', d: TODAY, meal: 'breakfast', foodId: 'oats', name: 'Oats', brand: undefined, g: 50, kcal: 190, p: 6.6, c: 33.9, f: 3.3 })
   })
+  it('carries fiber and sugar when the food lists them, and only then', () => {
+    const bran = { id: 'bran', name: 'Bran', per100: { kcal: 300, p: 10, c: 60, f: 4, fib: 25, sug: 12 } }
+    const e = entryFrom(bran, 40, { d: TODAY, meal: 'breakfast', id: 'x' })
+    expect([e.fib, e.sug]).toEqual([10, 4.8])
+    expect('fib' in entryFrom(oats, 40, { d: TODAY, meal: 'breakfast', id: 'y' })).toBe(false)
+    expect(dayTotals([e], TODAY)).toMatchObject({ fib: 10, sug: 4.8 })
+  })
   it('adds a day up and groups it by meal', () => {
     const log = [
       entryFrom(oats, 80, { d: TODAY, meal: 'breakfast', id: 'a' }),
@@ -69,7 +76,7 @@ describe('the food log', () => {
       { id: 'c', d: TODAY, meal: 'dinner', name: 'Quick add', kcal: 600, p: 40, c: 50, f: 20 },
       entryFrom(oats, 80, { d: '2026-10-07', meal: 'breakfast', id: 'd' }),
     ]
-    expect(dayTotals(log, TODAY)).toEqual({ kcal: 1023, p: 74.6, c: 106.6, f: 27, n: 3 })
+    expect(dayTotals(log, TODAY)).toEqual({ kcal: 1023, p: 74.6, c: 106.6, f: 27, fib: 0, sug: 0, n: 3 })
     const by = entriesByMeal(log, TODAY)
     expect(by.breakfast.map(e => e.id)).toEqual(['a'])
     expect(by.lunch).toEqual([])
@@ -108,5 +115,33 @@ describe('observedTdee', () => {
   it('says nothing from too little data', () => {
     expect(observedTdee(log.slice(0, 10), bw, 'kg', TODAY)).toBeNull()        // 5 days logged
     expect(observedTdee(log, bw.slice(0, 2), 'kg', TODAY)).toBeNull()         // 2 weigh-ins
+  })
+})
+
+describe('weekIntake', () => {
+  const tg = { kcal: 2270, p: 185, c: 235, f: 65 }
+  const logFor = days => days.flatMap(([ago, kcal, p]) => [{ d: shiftISO(TODAY, -ago), kcal, p }])
+  it('averages the complete logged days and leaves today out', () => {
+    const w = weekIntake(logFor([[0, 500, 30], [1, 2200, 190], [2, 2300, 180], [3, 2250, 170], [4, 2280, 200], [5, 2100, 150]]), tg, TODAY, 'cut')
+    expect(w.days).toHaveLength(7)
+    expect(w.days[6]).toEqual({ d: TODAY, kcal: 500, p: 30, n: 1 })
+    expect(w.loggedDays).toBe(5)
+    expect(w.avgKcal).toBe(2226)
+    expect(w.tips.map(x => [x.id, x.level])).toEqual([['kcal', 'ok'], ['protein', 'ok']])
+    expect(w.tips[1].args).toEqual([185, 4, 5])         // 190, 180, 170 (≥ 166.5), 200 — not 150
+  })
+  it('says when calories run over, or too far under on a cut', () => {
+    expect(weekIntake(logFor([[1, 2800, 190], [2, 2700, 190], [3, 2750, 190], [4, 2800, 190]]), tg, TODAY, 'cut').tips[0])
+      .toMatchObject({ id: 'kcal', level: 'warn', args: [2763, 493, 2270] })
+    expect(weekIntake(logFor([[1, 1500, 190], [2, 1600, 190], [3, 1550, 190], [4, 1500, 190]]), tg, TODAY, 'cut').tips[0])
+      .toMatchObject({ id: 'kcal', level: 'warn' })
+  })
+  it('flags low protein and too few logged days', () => {
+    const w = weekIntake(logFor([[1, 2200, 120], [2, 2250, 130]]), tg, TODAY, 'cut')
+    expect(w.tips.map(x => [x.id, x.level])).toEqual([['logging', 'info'], ['kcal', 'ok'], ['protein', 'warn']])
+  })
+  it('stays quiet with nothing logged or no targets', () => {
+    expect(weekIntake([], tg, TODAY, 'cut').tips).toEqual([])
+    expect(weekIntake(logFor([[1, 2000, 100]]), null, TODAY, 'cut').tips).toEqual([])
   })
 })
