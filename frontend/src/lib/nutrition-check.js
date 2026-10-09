@@ -62,6 +62,11 @@ export function labelIssues(per100) {
 export function checkTargets({ profile, kg, targets, today, log, bodyweight, unit }) {
   const checks = []
   const add = (id, level, msg, ...args) => checks.push({ id, level, msg, args })
+  // Everything is judged in kg; a profile in pounds reads it in pounds and grams per pound
+  // (1 g/lb ≈ 2.2 g/kg — the way US lifters talk about protein).
+  const lbs = unit === 'lb', W = lbs ? 'lb' : 'kg'
+  const wt = kgs => r1(lbs ? kgs * 2.20462 : kgs)
+  const perW = gPerKg => (lbs ? Math.round((gPerKg / 2.20462) * 100) / 100 : r1(gPerKg))
   const p = profile || {}
   const cm = num(p.cm), age = ageOf(p.born, today), bf = num(p.bf)
 
@@ -122,9 +127,9 @@ export function checkTargets({ profile, kg, targets, today, log, bodyweight, uni
     if (def > 0.35) add('deficit', 'fail', 'A {0}% deficit is too steep: expect to lose muscle and strength along with fat.', pct(def))
     else if (def > 0.25 || (goal === 'recomp' && def > 0.15)) add('deficit', 'warn', 'A {0}% deficit is on the aggressive side for keeping muscle.', pct(def))
     else add('deficit', 'ok', 'A {0}% deficit is moderate enough to keep building muscle.', pct(Math.max(0, def)))
-    if (pctWeek > 1.0) add('rate', 'warn', 'That is about {0} kg a week ({1}% of your weight) — above the 0.5–1% that protects muscle.', r1(Math.abs(kgWeek)), r1(pctWeek))
-    else if (goal === 'cut' && pctWeek < 0.25) add('rate', 'info', 'That is about {0} kg a week — slow. Fine for a recomp, slow for a cut.', r1(Math.abs(kgWeek)))
-    else add('rate', 'ok', 'Expected loss: about {0} kg a week ({1}% of your weight).', r1(Math.abs(kgWeek)), r1(pctWeek))
+    if (pctWeek > 1.0) add('rate', 'warn', 'That is about {0} {1} a week ({2}% of your weight) — above the 0.5–1% that protects muscle.', wt(Math.abs(kgWeek)), W, r1(pctWeek))
+    else if (goal === 'cut' && pctWeek < 0.25) add('rate', 'info', 'That is about {0} {1} a week — slow. Fine for a recomp, slow for a cut.', wt(Math.abs(kgWeek)), W)
+    else add('rate', 'ok', 'Expected loss: about {0} {1} a week ({2}% of your weight).', wt(Math.abs(kgWeek)), W, r1(pctWeek))
   } else if (goal === 'bulk') {
     if (delta > 0.15) add('deficit', 'warn', 'A {0}% surplus adds more fat than muscle — 5–15% is plenty.', pct(delta))
     else add('deficit', 'ok', 'A {0}% surplus is a lean bulk.', pct(delta))
@@ -140,21 +145,21 @@ export function checkTargets({ profile, kg, targets, today, log, bodyweight, uni
   const basis = useKatch ? kg : proteinBasisKg(kg, cm)
   const gkg = pr / basis
   const losing = goal === 'cut' || goal === 'recomp'
-  if (gkg < 1.6) add('protein', 'warn', 'Protein is {0} g/kg — below the 1.6 g/kg minimum for building muscle.', r1(gkg))
-  else if (losing && gkg < 1.8) add('protein', 'warn', 'Protein is {0} g/kg — on the low side while in a deficit; 2.0–2.4 g/kg protects muscle better.', r1(gkg))
-  else if (gkg > 3.3) add('protein', 'warn', 'Protein is {0} g/kg — more than any study finds useful; those calories would serve training better as carbs.', r1(gkg))
-  else if (losing) add('protein', 'ok', 'Protein is {0} g/kg — right for keeping and building muscle in a deficit.', r1(gkg))
-  else add('protein', 'ok', 'Protein is {0} g/kg — right for building muscle.', r1(gkg))
+  if (gkg < 1.6) add('protein', 'warn', 'Protein is {0} g/{1} — below the {2} g/{1} minimum for building muscle.', perW(gkg), W, perW(1.6))
+  else if (losing && gkg < 1.8) add('protein', 'warn', 'Protein is {0} g/{1} — on the low side while in a deficit; {2}–{3} g/{1} protects muscle better.', perW(gkg), W, perW(2.0), perW(2.4))
+  else if (gkg > 3.3) add('protein', 'warn', 'Protein is {0} g/{1} — more than any study finds useful; those calories would serve training better as carbs.', perW(gkg), W)
+  else if (losing) add('protein', 'ok', 'Protein is {0} g/{1} — right for keeping and building muscle in a deficit.', perW(gkg), W)
+  else add('protein', 'ok', 'Protein is {0} g/{1} — right for building muscle.', perW(gkg), W)
 
   // 9 · fat
   const fkg = fa / kg, fshare = (9 * fa) / kcal
-  if (fkg < 0.5 || fshare < 0.2) add('fat', 'warn', 'Fat is {0} g/kg ({1}% of calories) — low enough to affect hormones. Aim for at least 0.6 g/kg and 20%.', r1(fkg), pct(fshare))
+  if (fkg < 0.5 || fshare < 0.2) add('fat', 'warn', 'Fat is {0} g/{1} ({2}% of calories) — low enough to affect hormones. Aim for at least {3} g/{1} and 20%.', perW(fkg), W, pct(fshare), perW(0.6))
   else add('fat', 'ok', 'Fat is {0}% of calories — a healthy amount.', pct(fshare))
 
   // 10 · carbs — not essential, but they fuel hard sets
   const ckg = ca / kg
-  if (ckg < 1.5) add('carbs', 'info', 'Carbs are {0} g/kg — on the low side for hard training; expect heavier sessions to feel it.', r1(ckg))
-  else add('carbs', 'ok', 'Carbs are {0} g/kg — enough to fuel your training.', r1(ckg))
+  if (ckg < 1.5) add('carbs', 'info', 'Carbs are {0} g/{1} — on the low side for hard training; expect heavier sessions to feel it.', perW(ckg), W)
+  else add('carbs', 'ok', 'Carbs are {0} g/{1} — enough to fuel your training.', perW(ckg), W)
 
   // 11 · the reality check: what the logs say, once there are enough of them
   const obs = log && bodyweight ? observedTdee(log, bodyweight, unit, today) : null
@@ -162,7 +167,7 @@ export function checkTargets({ profile, kg, targets, today, log, bodyweight, uni
     const diff = (obs.tdee - tdee) / tdee
     if (Math.abs(diff) > 0.15) add('observed', 'warn', 'Your last {0} logged days say you actually burn about {1} kcal a day, not ~{2}. Consider moving your target by {3} kcal.', obs.loggedDays, Math.round(obs.tdee / 10) * 10, Math.round(tdee / 10) * 10, Math.round((obs.tdee - tdee) / 10) * 10)
     else add('observed', 'ok', 'Your logs confirm it: you burn about {0} kcal a day, close to the estimate.', Math.round(obs.tdee / 10) * 10)
-    if (losing && obs.kgPerWeek < 0 && (-obs.kgPerWeek / kg) * 100 > 1.0) add('observed-rate', 'warn', 'You are losing {0} kg a week — faster than 1% of your weight. Eat a little more to keep muscle.', r1(-obs.kgPerWeek))
+    if (losing && obs.kgPerWeek < 0 && (-obs.kgPerWeek / kg) * 100 > 1.0) add('observed-rate', 'warn', 'You are losing {0} {1} a week — faster than 1% of your weight. Eat a little more to keep muscle.', wt(-obs.kgPerWeek), W)
   } else {
     add('observed', 'info', 'After 2–3 weeks of logging food and weigh-ins, this check also compares the numbers against your real results.')
   }

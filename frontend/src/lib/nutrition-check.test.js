@@ -22,8 +22,14 @@ describe('checkTargets', () => {
     expect(res.checks.filter(c => c.level === 'warn' || c.level === 'fail')).toEqual([])
     expect(res.level).toBe('info')                       // only "log for 2–3 weeks to verify"
     expect(byId(res, 'agree').level).toBe('ok')
-    expect(byId(res, 'rate').args).toEqual([0.6, 0.7])   // ≈0.58 kg/week, 0.7 % of body weight
+    expect(byId(res, 'rate').args).toEqual([0.6, 'kg', 0.7])   // ≈0.58 kg/week, 0.7 % of body weight
     expect(res.second.method).toBe('Harris-Benedict')
+  })
+  it('speaks pounds and grams per pound to a profile in pounds', () => {
+    const res = run(calcTargets(ME, 85, TODAY), ME, 85, { unit: 'lb' })
+    expect(byId(res, 'rate').args).toEqual([1.3, 'lb', 0.7])       // 0.58 kg ≈ 1.3 lb a week
+    expect(byId(res, 'protein').args).toEqual([0.99, 'lb'])        // 185 g at 187 lb ≈ 1 g/lb
+    expect(byId(run({ kcal: 2270, p: 110, c: 365, f: 65 }, ME, 85, { unit: 'lb' }), 'protein').args).toEqual([0.59, 'lb', 0.73])
   })
   it('the calculated targets pass for every goal and a range of people', () => {
     for (const goal of ['cut', 'recomp', 'maintain', 'bulk']) {

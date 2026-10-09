@@ -4,7 +4,7 @@ import { localTZ } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
-import { STANDALONE } from '../lib/standalone.js'
+import { STANDALONE, imperialLocale } from '../lib/standalone.js'
 import { rememberDefaultLang } from '../lib/default-lang.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, onAppActive, readJsonFile, syncReminder, writeAutoBackup, writeJsonFile } from '../lib/mobile.js'
@@ -1476,6 +1476,15 @@ export const useStore = create((set, get) => {
         // This browser holds the only copy: ask for storage the browser will not clear under
         // pressure. Safari grants it to a home-screen app; a refusal changes nothing.
         if (STANDALONE) { try { navigator.storage?.persist?.()?.catch?.(() => {}) } catch { /* not offered */ } }
+        // A US phone starts in pounds unless a unit was ever chosen. With nothing logged that is
+        // just the label; with numbers already saved, Home asks once whether they were really
+        // kilograms (convert) or pounds typed under a kg label (relabel).
+        const S0 = get().S
+        if (STANDALONE && !S0.unitSet && (S0.unit || 'kg') === 'kg' && imperialLocale()) {
+          const hasWeights = (S0.bodyweight || []).length || (S0.workouts || []).length || Object.keys(S0.exWeights || {}).length || S0.targetW || S0.nutri?.startW
+          if (hasWeights) set({ unitAsk: true })
+          else get().setUnit('lb', { convert: false })
+        }
         if (DEMO && !localStorage.getItem(DEMO_SEEDED)) {
           localStorage.setItem(DEMO_SEEDED, '1')
           await get().resetDemo()

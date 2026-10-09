@@ -26,10 +26,31 @@ describe('standalone boot', () => {
     expect(st.user).toBeFalsy()
     expect(st.S.workouts || []).toEqual([])
     expect(st.S.bodyweight || []).toEqual([])
+    expect(st.S.unit).toBe('lb')                     // a US phone (happy-dom says en-US), nothing logged
     expect(localStorage.getItem('gym_demo_seeded_v1')).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('asks before relabelling weights already saved in kg', async () => {
+    globalThis.fetch = window.fetch = vi.fn(async () => { throw new Error('no server') })
+    localStorage.setItem('gym_state_v1', JSON.stringify({ unit: 'kg', bodyweight: [{ d: '2026-10-01', w: 85 }] }))
+    vi.resetModules()
+    const { useStore } = await import('./useStore.js')
+    await useStore.getState().boot()
+    expect(useStore.getState().unitAsk).toBe(true)
+    expect(useStore.getState().S.unit).toBe('kg')
+    useStore.getState().setUnit('lb')
+    expect(useStore.getState().S.bodyweight[0].w).toBeCloseTo(187.4, 1)
+  })
+  it('leaves a unit that was chosen alone', async () => {
+    globalThis.fetch = window.fetch = vi.fn(async () => { throw new Error('no server') })
+    localStorage.setItem('gym_state_v1', JSON.stringify({ unit: 'kg', unitSet: { at: 1, convert: false } }))
+    vi.resetModules()
+    const { useStore } = await import('./useStore.js')
+    await useStore.getState().boot()
+    expect(useStore.getState().S.unit).toBe('kg')
+    expect(useStore.getState().unitAsk).toBeFalsy()
+  })
   it('keeps what an earlier visit saved in this browser', async () => {
     globalThis.fetch = window.fetch = vi.fn(async () => { throw new Error('no server') })
     vi.resetModules()

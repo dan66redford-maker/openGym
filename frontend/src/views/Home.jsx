@@ -22,6 +22,7 @@ export default function Home() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const unitAsk = useStore(s => s.unitAsk)
   const [weekOffset, setWeekOffset] = useState(0)
   // Standalone build: this phone holds the only copy, so ask for a backup once a week.
   const [, rerender] = useState(0)
@@ -138,6 +139,19 @@ export default function Home() {
         </div>
       </div>
     )}
+
+    {unitAsk && <div className="card">
+      <div className="row" style={{ gap: 10, marginBottom: 6 }}>
+        <span className="lrow-i" style={{ background: 'var(--teal)' }}><Icon name="scale" /></span>
+        <div className="ttl" style={{ fontWeight: 600 }}>{t('Switch to pounds and feet/inches?')}</div>
+      </div>
+      <div className="muted small" style={{ marginBottom: 12, lineHeight: 1.45 }}>{t('Your weights are saved in kg. Were they really kilograms, or pounds typed while the app said kg?')}</div>
+      <Button variant="primary" onClick={() => { useStore.getState().setUnit('lb'); useStore.setState({ unitAsk: false }) }}>{t('They were kg — convert to lb')}</Button>
+      <div style={{ height: 8 }} />
+      <Button onClick={() => { useStore.getState().setUnit('lb', { convert: false }); useStore.setState({ unitAsk: false }) }}>{t('They were already pounds')}</Button>
+      <div style={{ height: 8 }} />
+      <Button variant="ghost" className="dim" onClick={() => { useStore.getState().update(s => { s.unitSet = { at: Date.now(), convert: false } }); useStore.setState({ unitAsk: false }) }}>{t('Keep kilograms')}</Button>
+    </div>}
 
     {backup?.due && <div className="card">
       <div className="row" style={{ gap: 10, marginBottom: 6 }}>

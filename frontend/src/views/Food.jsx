@@ -27,6 +27,10 @@ const toast = msg => useUI.getState().toast(msg)
 
 const MEAL_LABEL = { breakfast: () => t('Breakfast'), lunch: () => t('Lunch'), dinner: () => t('Dinner'), snack: () => t('Snacks') }
 const n0 = v => Math.round(Number(v) || 0).toLocaleString()
+// Amounts are stored in grams; a profile in pounds reads and types them in ounces.
+const OZ = 28.349523125
+const usesOz = () => S().unit === 'lb'
+const amountText = g => (usesOz() ? String(Math.round((g / OZ) * 10) / 10) + ' oz' : g1(g) + ' g')
 const g1 = v => String(Math.round((Number(v) || 0) * 10) / 10)
 
 // Which meal a new entry lands in by default: the one the clock says.
@@ -116,7 +120,7 @@ export default function Food() {
         {list.map(e => <button key={e.id} className="fd-entry" onClick={() => entrySheet(e)}>
           <span className="fd-entry-m">
             <span className="fd-entry-n">{e.name}</span>
-            <span className="small muted">{[e.brand, e.g ? g1(e.g) + ' g' : null, 'P ' + g1(e.p) + ' · C ' + g1(e.c) + ' · F ' + g1(e.f)].filter(Boolean).join(' · ')}</span>
+            <span className="small muted">{[e.brand, e.g ? amountText(e.g) : null, 'P ' + g1(e.p) + ' · C ' + g1(e.c) + ' · F ' + g1(e.f)].filter(Boolean).join(' · ')}</span>
           </span>
           <span className="fd-entry-k">{n0(e.kcal)}</span>
         </button>)}
@@ -318,16 +322,22 @@ function FoodForm({ draft, note, onCancel, onSaved }) {
 
 function AmountStep({ food, mealPicker, onCancel, onAdd, onEdit }) {
   const sg = food.serving?.g > 0 ? food.serving.g : null
-  const [mode, setMode] = useState(sg ? 'serving' : 'g')
-  const [amount, setAmount] = useState(sg ? 1 : 100)
-  const g = mode === 'serving' ? (amount || 0) * sg : (amount || 0)
+  const oz = usesOz()
+  const [mode, setMode] = useState(sg ? 'serving' : oz ? 'oz' : 'g')
+  const [amount, setAmount] = useState(sg ? 1 : oz ? 4 : 100)
+  const g = mode === 'serving' ? (amount || 0) * sg : mode === 'oz' ? (amount || 0) * OZ : (amount || 0)
+  // Switching keeps the same amount of food: 1 serving of 28 g becomes 1 oz, not 1 g.
+  const switchMode = x => {
+    setMode(x)
+    setAmount(x === 'serving' ? Math.round((g / sg) * 100) / 100 || 1 : x === 'oz' ? Math.round((g / OZ) * 10) / 10 : Math.round(g))
+  }
+  const modes = [...(sg ? [{ value: 'serving', label: t('Servings') }] : []), ...(oz ? [{ value: 'oz', label: 'oz' }, { value: 'g', label: 'g' }] : [{ value: 'g', label: t('Grams') }, { value: 'oz', label: 'oz' }])]
   const m = macrosFor(food, g)
   return <>
     <h3 style={{ marginBottom: 2 }}>{food.name}</h3>
     <div className="small muted" style={{ marginBottom: 12 }}>{[food.brand, t('{0} kcal / 100 g', n0(food.per100?.kcal))].filter(Boolean).join(' · ')}</div>
-    {sg && <><Segmented value={mode} onChange={x => { setMode(x); setAmount(x === 'serving' ? 1 : Math.round(sg)) }}
-      options={[{ value: 'serving', label: t('Servings ({0} g)', g1(sg)) }, { value: 'g', label: t('Grams') }]} /><div style={{ height: 10 }} /></>}
-    <label className="fd-field"><span className="small muted">{mode === 'serving' ? t('Servings') : t('Grams')}</span>
+    <Segmented value={mode} onChange={switchMode} options={modes} /><div style={{ height: 10 }} />
+    <label className="fd-field"><span className="small muted">{mode === 'serving' ? t('Servings (1 = {0})', food.serving?.label || amountText(sg)) : mode === 'oz' ? t('Ounces') : t('Grams')}</span>
       <NumberField className="field" value={amount} onChange={setAmount} autoFocus /></label>
     <div className="fd-preview">
       <div><b>{n0(m.kcal)}</b><span>kcal</span></div>
@@ -382,7 +392,9 @@ const entrySheet = e => useUI.getState().openSheet(close => <EntrySheet entry={e
 
 function EntrySheet({ entry, close }) {
   const food = (S().foods || []).find(f => f.id === entry.foodId)
-  const [g, setG] = useState(entry.g || null)
+  const oz = usesOz()
+  const [amt, setAmt] = useState(entry.g ? (oz ? Math.round((entry.g / OZ) * 10) / 10 : entry.g) : null)
+  const g = amt == null ? null : oz ? amt * OZ : amt
   const del = () => confirmSheet({
     title: t('Remove {0}?', entry.name), confirmText: t('Remove'), danger: true,
     onConfirm: () => { update(s => { s.foodLog = (s.foodLog || []).filter(x => x.id !== entry.id) }); close() },
@@ -395,7 +407,7 @@ function EntrySheet({ entry, close }) {
     <h3 style={{ marginBottom: 2 }}>{entry.name}</h3>
     <div className="small muted" style={{ marginBottom: 12 }}>{n0(entry.kcal)} kcal · P {g1(entry.p)} · C {g1(entry.c)} · F {g1(entry.f)}</div>
     {food && entry.g ? <>
-      <label className="fd-field"><span className="small muted">{t('Grams')}</span><NumberField className="field" value={g} onChange={setG} /></label>
+      <label className="fd-field"><span className="small muted">{oz ? t('Ounces') : t('Grams')}</span><NumberField className="field" value={amt} onChange={setAmt} /></label>
       <div style={{ height: 12 }} />
       <Button variant="primary" onClick={save} disabled={!(g > 0)}>{t('Save')}</Button>
       <div style={{ height: 8 }} />
